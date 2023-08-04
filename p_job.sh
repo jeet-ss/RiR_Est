@@ -1,7 +1,8 @@
 #!/bin/bash -l 
 #SBATCH --cpus-per-task=8
-#SBATCH --time=05:00:00 
-#SBATCH --job-name=gen_data
+#SBATCH --gres=gpu:1
+#SBATCH --time=00:30:00 
+#SBATCH --job-name=geo_est
 #SBATCH --export=NONE 
 
 unset SLURM_EXPORT_ENV 
@@ -11,7 +12,7 @@ export SRUN_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK
 
 #module load python/3.10-anaconda
 source $HOME/spice/bin/activate
-cd $HPCVAULT/RiR_Est
+cd $HPCVAULT/Rir_Est
 #ls
 #python --version
-srun python generate_data.py
+srun python train.py
