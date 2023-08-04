@@ -14,7 +14,7 @@ def train(args):
     lr = 0.001          # org 0.001
     early_stopping = 100
     batch_size = 2
-    args.fp = "./rirData/ism_10k.npy"
+    args.fp = "./rirData/ism_100.npy"
     epochs = 1        # org 2000
 
     # load data
