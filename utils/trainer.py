@@ -26,17 +26,25 @@ class Trainer:
                 early_stopping_patience, # early stopping
 
                 ):
-        self.model = model.type(dtype)
+        self._model = model.type(dtype)
         self.optimizer = optimizer
         self.criterion = criterion.type(dtype)
         self.train_batches= train_loader
         #self.val_batches= val_loader
+        self._early_stopping_patience = early_stopping_patience
+
+    def save_checkpoint(self, epoch):
+        torch.save({'state_dict': self._model.state_dict()}, 'Re_checkpoints/checkpoint_{:03d}.ckp'.format(epoch))
+    
+    def restore_checkpoint(self, epoch_n):
+        ckp = torch.load('checkpoints/checkpoint_{:03d}.ckp'.format(epoch_n), device)
+        self._model.load_state_dict(ckp['state_dict'])
 
     def train_step(self, rir_features, geo_labels, batch_idx):
         # reset zero grad
         self.optimizer.zero_grad()
         #
-        pred = self.model(rir_features.unsqueeze(axis=1))
+        pred = self._model(rir_features.unsqueeze(axis=1))
         #print("in train", pred.size(), geo_labels.size() )
         # calculate loss
         loss = self.criterion(pred, geo_labels)
@@ -56,7 +64,7 @@ class Trainer:
 
     def train_epoch(self):
         # set training mode
-        self.model.train()
+        self._model.train()
         # iterate through the training set
         loss = 0
         #for idx, batches in tqdm.tqdm(enumerate(self.train_batches), unit='batch', total=len(self.train_batches), desc='loading batches'):
@@ -84,6 +92,7 @@ class Trainer:
         loss_val = np.array([])
         epoch_counter = 0
         min_loss = np.Inf
+        criteria_counter = 0
         #
         #while (True):
         for i in tqdm.trange(epochs):
@@ -99,6 +108,17 @@ class Trainer:
             logger.scalar_summary("loss", train_loss, i)
             #loss_val = np.append(loss_val, val_loss)
             if train_loss < min_loss:
+                criteria_counter = 0
                 min_loss = train_loss
+                # save checkpoint
+            
+            else:
+                criteria_counter += 1
+            
+            # early stopping
+            if criteria_counter > self._early_stopping_patience:
+                print("Early Stopping Criteria activated")
+                break
+
             
         return train_loss, min_loss
