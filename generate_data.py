@@ -9,6 +9,7 @@ def generate_ism(n_data=40000):
     """
     N_data = n_data           # 40000
     data = np.zeros((4105,1))
+    temp_data = np.zeros((4105,1))
     #
     # 14, 1 for error,  3 for clean data
     np.random.seed(14)
@@ -56,12 +57,17 @@ def generate_ism(n_data=40000):
             h = np.expand_dims(h, axis=1)
             # save ISM data
             #print("ISM data: ", h.shape)
-            data = np.hstack((data,h))
+            temp_data = np.hstack((temp_data,h))
+            #print("ISM data: ", data.shape[1])
+        if temp_data.shape[1] > 1000:
+            #print("temp: ", temp_data.shape, data.shape)
+            data = np.hstack((data, temp_data[:, 1:]))
+            temp_data = np.zeros((4105,1))    
 
     # remove 1st zero column
     print("count" , count) 
     data = data[:,1:]
-    print(" data: ", data.shape)
+    print(" data: ", data.shape[1])
     return data.T   
 
 

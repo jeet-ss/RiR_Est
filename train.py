@@ -13,13 +13,13 @@ def train(args):
     # hyperparams
     lr = 0.001          # org 0.001
     early_stopping = 100
-    batch_size = 2
-    args.fp = "./rirData/ism_100.npy"
-    epochs = 1        # org 2000
+    batch_size = 50
+    args.fp = "./rirData/ism_40k.npy"
+    epochs = 1000       # org 2000
 
     # load data
     dd = np.load(args.fp)
-    dd = np.concatenate((dd[:2450,:] , dd[2452:,:]))
+    #dd = np.concatenate((dd[:2450,:] , dd[2452:,:]))
     data_pd = pd.DataFrame(dd)
     print("DAta shape", data_pd.shape)
 
@@ -34,7 +34,7 @@ def train(args):
     trainer = Trainer(model=geo_est, optimizer=optimizer, criterion=loss_function, train_loader=batches, early_stopping_patience=early_stopping)
 
     loss, minLoss = trainer.fit(epochs=epochs)
-    print("Loss", minLoss, loss)
+    print("Loss", minLoss)
 
 
 

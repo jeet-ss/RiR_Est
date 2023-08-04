@@ -101,4 +101,4 @@ class Trainer:
             if train_loss < min_loss:
                 min_loss = train_loss
             
-        return loss_train, min_loss
+        return train_loss, min_loss
