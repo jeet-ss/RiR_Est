@@ -42,10 +42,18 @@ class Lit_GeoEstimator(pl.LightningModule):
 if __name__ == '__main__':
     modelTrainer = Lit_GeoEstimator()
 
+<<<<<<< HEAD
     dd = np.load("./rirData/ism_400.npy")
+=======
+    dd = np.load("./rirData/ism_40k.npy")
+>>>>>>> 9926d391994e6f2a1e4b1d81add599859eda7c92
     #dd = np.concatenate((dd[:2400,:] , dd[2500:,:]))
     data=pd.DataFrame(dd)
     trainLoader = torch.utils.data.DataLoader(ISMDataset(data=data), batch_size=50, shuffle=True, num_workers=4)
 
+<<<<<<< HEAD
     trainer = pl.Trainer(max_epochs=1)
+=======
+    trainer = pl.Trainer(max_epochs=2000)
+>>>>>>> 9926d391994e6f2a1e4b1d81add599859eda7c92
     trainer.fit(model=modelTrainer, train_dataloaders=trainLoader)
