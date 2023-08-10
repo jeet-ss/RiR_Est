@@ -51,25 +51,26 @@ class Geometry_estimator(nn.Module):
 
 class MLP_reflectionCoeff(nn.Module):
     """
-        This model estimates 8 reflection coeffs!
-        shouldnt there be 6 !?!
+        This model estimates 6 reflection coeffs!
     """
     def __init__(self):
         super().__init__()
         # define layers
         self.mlp = nn.Sequential(
-                        nn.Linear(2048, 1024), nn.ReLU(),
-                        nn.Linear(1024, 512), nn.ReLU(),
-                        nn.Linear(512, 256), nn.ReLU(),
-                        nn.Linear(256, 128), nn.ReLU(),
-                        nn.Linear(128, 64), nn.ReLU(),
-                        nn.Linear(64, 32), nn.ReLU(),
-                        nn.Linear(32, 16), nn.ReLU(),
-                        nn.Linear(16, 8), nn.ReLU(),
+                        nn.Linear(4096, 2048), nn.ReLU(),
+                        nn.Linear(2048, 1024), nn.ReLU(),   #1 
+                        nn.Linear(1024, 512), nn.ReLU(),    #2
+                        nn.Linear(512, 256), nn.ReLU(),     #3
+                        nn.Linear(256, 128), nn.ReLU(),     #4
+                        nn.Linear(128, 64), nn.ReLU(),      #5
+                        nn.Linear(64, 32), nn.ReLU(),       #6
+                        nn.Linear(32, 16), nn.ReLU(),       #7
+                        nn.Linear(16, 8), nn.ReLU(),        #8
+                        nn.Linear(8, 6)                     #9
                     )
         
     def forward(self, inp):
-        return self.seq(inp)
+        return self.mlp(inp)
     
 
 class Link_model(nn.Module):
@@ -102,14 +103,15 @@ class Link_model(nn.Module):
         # inp shape = (b, 1, 4096) ,  room_geo = (b ,1, 3)
         batch = inp.size()[0]
         # add conditoning
-        inp = torch.concatenate((inp, room_geo), axis = 2)
+
+        inp = torch.concatenate((inp, room_geo), axis = 1).unsqueeze(axis=1)
         # conv layers
         inp = self.convLayers(inp)
         # flatten
         inp = inp.reshape(batch, -1)
         # add conditioning
         # 1024 + 3
-        inp = torch.cat((inp, room_geo.squueze(axis=1)), axis=1)
+        inp = torch.cat((inp, room_geo), axis=1)
         # fc layers
         inp = self.fcLayers(inp)
         # return
