@@ -11,6 +11,9 @@ class Logger(object):
         """Create a summary writer logging to log_dir."""
         self.writer = SummaryWriter(log_dir)
 
+    def update_dir(self, log_dir):
+        self.writer = SummaryWriter(log_dir)
+
     def scalar_summary(self, tag, value, step):
         """Log a scalar variable."""
         #summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=value)])

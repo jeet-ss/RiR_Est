@@ -22,21 +22,19 @@ def train(args):
     data_pd = pd.DataFrame(dd)
     print("DAta shape", data_pd.shape)
 
-    # calculate data
+    # divide data
     train_data, rest_data = train_test_split(data_pd, train_size=0.7, random_state=1)
     val_data, test_data = train_test_split(rest_data, test_size=0.333333, random_state=1)
+
     train_batches = torch.utils.data.DataLoader(ISMDataset(data=train_data), batch_size=batch_size,  num_workers=4)
     val_batches = torch.utils.data.DataLoader(ISMDataset(data=val_data), batch_size=batch_size,  num_workers=4)
     test_batches = torch.utils.data.DataLoader(ISMDataset(data=test_data), batch_size=batch_size,  num_workers=4)
     print("batches:" , len(train_batches), len(val_batches), len(test_batches))
-    # models
-    geo_est = Geometry_estimator()
-    reflec_est = MLP_reflectionCoeff()
-    link_both = Link_model()
+    
     # loss funciton
     loss_function = torch.nn.MSELoss()
 
-    trainer = Trainer(model=reflec_est, criterion=loss_function, train_loader=train_batches, val_loader=val_batches, early_stopping_patience=early_stopping)
+    trainer = Trainer(model_no=1, lr=lr, criterion=loss_function, train_loader=train_batches, val_loader=val_batches, early_stopping_patience=early_stopping)
 
     loss, minLoss = trainer.fit(epochs=epochs)
     print("Loss", minLoss)
