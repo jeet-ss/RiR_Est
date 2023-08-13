@@ -28,6 +28,7 @@ class Trainer:
                 criterion,  # loss function to use
                 train_loader,  # data loader for training
                 val_loader,   # data loader for validation
+                test_loader,    # test data
                 early_stopping_patience, # early stopping
 
                 ):
@@ -37,43 +38,40 @@ class Trainer:
             self._model= Geometry_estimator().type(dtype)
             self.train_step = self.train_step_Geo
             self.val_step = self.val_test_step_Geo
-            self.save_model = self.save_checkpoint_Geo
             self.concat_batchLabels = self.concat_batchLables_Geo
+            self.root_path = 'Geo_checkpoints'
             logger.update_dir('./logs_Geo')
         elif model_no == 2:
             self._model= MLP_reflectionCoeff().type(dtype)
             self.train_step = self.train_step_reCoeff
             self.val_step = self.val_test_step_reCoeff
-            self.save_model = self.save_checkpoint_ReCoeff
             self.concat_batchLabels = self.concat_batchLables_ReCoeff
+            self.root_path = 'Ref_checkpoints'
             logger.update_dir('./logs_reCoeff')
         elif model_no == 3:
             self._model= Link_model().type(dtype)
             self.train_step = self.train_step_Link
             self.val_step = self.val_test_step_Link
-            self.save_model = self.save_checkpoint_Link
             self.concat_batchLabels = self.concat_batchLables_Link
+            self.root_path = 'Link_checkpoints'
             logger.update_dir('./logs_Link')
         else:
             raise NotImplementedError("invalid model number, should be between 1-3")
         # define optimizer here for modularity
         self.optimizer = torch.optim.Adam(self._model.parameters(), lr=0.001)
         self.criterion = criterion.type(dtype)
-        self.train_batches= train_loader
-        self.val_batches= val_loader
+        self.train_batches = train_loader
+        self.val_batches = val_loader
+        self.test_batches = test_loader
         self._early_stopping_patience = early_stopping_patience
 
-    def save_checkpoint_Geo(self, epoch):
-        torch.save({'state_dict': self._model.state_dict()}, 'Geo_checkpoints/checkpoint_{:03d}.ckp'.format(epoch))
+    def save_checkpoint(self, epoch):
+        if os.path.isdir(self.root_path) != True:
+            os.makedirs(self.root_path)
+        torch.save({'state_dict': self._model.state_dict()}, os.path.join(self.root_path,'checkpoint_{:03d}.ckp'.format(epoch)))
 
-    def save_checkpoint_ReCoeff(self, epoch):
-        torch.save({'state_dict': self._model.state_dict()}, 'ReCoeff_checkpoints/checkpoint_{:03d}.ckp'.format(epoch))
-
-    def save_checkpoint_Link(self, epoch):
-        torch.save({'state_dict': self._model.state_dict()}, 'Link_checkpoints/checkpoint_{:03d}.ckp'.format(epoch))
-    
     def restore_checkpoint(self, epoch_n):
-        ckp = torch.load('checkpoints/checkpoint_{:03d}.ckp'.format(epoch_n), device)
+        ckp = torch.load(os.path.join(self.root_path, 'checkpoint_{:03d}.ckp'.format(epoch_n), device))
         self._model.load_state_dict(ckp['state_dict'])
 
     def train_step_Geo(self, rir_features, geo_labels, coeff_l, batch_idx):
@@ -205,7 +203,7 @@ class Trainer:
 
         return avg_loss
 
-    def val_epoch(self):
+    def val_epoch(self, batches, mode='val'):
         # eval mode
         self._model.eval()
         # 
@@ -214,7 +212,8 @@ class Trainer:
         batch_labels = torch.empty(0)
         #
         with torch.no_grad():
-            for idx, batches in enumerate(self.val_batches):
+            for idx, batches in enumerate(batches):
+               
                 geo_l, coeff_l, rir_f = batches
                 geo_l = geo_l.type(dtype)
                 coeff_l = coeff_l.type(dtype)
@@ -232,11 +231,15 @@ class Trainer:
             # avg loss
             avg_loss = loss/self.val_batches.__len__()
             #print("inval", batch_labels.size(), batch_pred.size())
-            # calculate score
-            bias = self.Bias_Calc(batch_pred, batch_labels)
-            print("sCore:", bias)
-            # print score
-            return avg_loss
+            if mode == 'test':
+                # calculate score
+                scores = self.score_func(batch_pred, batch_labels)
+                # print score
+                print("Scores: ", "\n", "1. RMSE: ", scores['rmse'], "\n", "2. Bias: ", scores['bias'], "\n", "3. Var: ", scores['var']  ) # rmse
+                #print(scores)
+                return avg_loss, scores
+            else :
+                return avg_loss
         
     # fucntion to reshape labels for 3rd model
     def reshape_lables3x3(self, batch_size, geo_labels, coeff_l):
@@ -252,13 +255,13 @@ class Trainer:
 
     def score_func(self, batch_pred, batch_labels):
         # Bias measures the mean deviation of our estimates from the true value
-        bias = np.mean(np.abs(batch_labels - batch_pred), axis=0)
+        bias = torch.mean(torch.abs(batch_labels - batch_pred), axis=0)
         # rmse 
-        rmse = np.sqrt(np.mean((np.square(batch_labels - batch_pred)), axis=0))
+        rmse = torch.sqrt(torch.mean((torch.square(batch_labels - batch_pred)), axis=0))
         # variance
-        var = np.var(batch_pred, axis=0)
+        var = torch.var(batch_pred, axis=0)
         #
-        return bias, var, rmse
+        return {"bias":bias,"var":var,"rmse":rmse}
 
     def fit(self, epochs=-1):
         assert epochs > 0, 'Epochs > 0'
@@ -277,7 +280,7 @@ class Trainer:
             # increment Counter
             #epoch_counter += 1
             train_loss = self.train_epoch()
-            val_loss = self.val_epoch()
+            val_loss = self.val_epoch(self.val_batches)
             #
             loss_train = np.append(loss_train, train_loss)
             loss_val = np.append(loss_val, val_loss)
@@ -289,6 +292,7 @@ class Trainer:
                 criteria_counter = 0
                 min_loss = train_loss
                 # save checkpoint
+                self.save_checkpoint(i)
             
             else:
                 criteria_counter += 1            
@@ -296,6 +300,15 @@ class Trainer:
             if criteria_counter > self._early_stopping_patience:
                 print("Early Stopping Criteria activated")
                 break
+        
+        # run test batch
+        test_loss, scores = self.val_epoch(self.test_batches, mode='test')
 
             
-        return val_loss, min_loss
+        return  {
+            "train_loss" : loss_train,
+            "test_loss" : test_loss,
+            "val_loss" : loss_val,
+            "min_loss" : min_loss,
+            "scores" : scores
+        }

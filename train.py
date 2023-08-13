@@ -1,4 +1,5 @@
 import torch
+import os
 import numpy as np
 import argparse
 import pandas as pd
@@ -9,12 +10,14 @@ from utils.dataLoader import ISMDataset
 from utils.trainer import Trainer
 
 def train(args):
+    # MOdel
+    model_num = 3
     # hyperparams
     lr = 0.001          # org 0.001
     early_stopping = 100
     batch_size = 50
     args.fp = "./rirData/ism_400.npy"
-    epochs = 1       # org 2000
+    epochs = 3       # org 2000
 
     # load data
     dd = np.load(args.fp)
@@ -34,10 +37,11 @@ def train(args):
     # loss funciton
     loss_function = torch.nn.MSELoss()
 
-    trainer = Trainer(model_no=1, lr=lr, criterion=loss_function, train_loader=train_batches, val_loader=val_batches, early_stopping_patience=early_stopping)
+    trainer = Trainer(model_no=model_num, lr=lr, criterion=loss_function, train_loader=train_batches, val_loader=val_batches, test_loader=test_batches, early_stopping_patience=early_stopping)
 
-    loss, minLoss = trainer.fit(epochs=epochs)
-    print("Loss", minLoss)
+    loss = trainer.fit(epochs=epochs)
+    print("Loss", loss)
+    np.save(str(model_num)+ '_lossData.npy', loss)
 
 
 
