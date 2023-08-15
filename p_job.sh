@@ -2,7 +2,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --time=23:30:00 
-#SBATCH --job-name=geo_est
+#SBATCH --job-name=m1
 #SBATCH --export=NONE 
 
 unset SLURM_EXPORT_ENV 

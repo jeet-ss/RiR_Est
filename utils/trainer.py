@@ -26,11 +26,11 @@ class Trainer:
                 lr,         # learning rate
                 #optimizer,  # optimizer to use
                 criterion,  # loss function to use
-                train_loader,  # data loader for training
-                val_loader,   # data loader for validation
-                test_loader,    # test data
-                early_stopping_patience, # early stopping
-
+                train_loader=None,  # data loader for training
+                val_loader=None,   # data loader for validation
+                test_loader=None,    # test data
+                early_stopping_patience=100, # early stopping
+                name_variant = '',          # string for differenctiating experiments
                 ):
         #self._model = model.type(dtype)
         # 
@@ -56,7 +56,7 @@ class Trainer:
             self.root_path = 'Link_checkpoints'
             logger.update_dir('./logs_Link')
         else:
-            raise NotImplementedError("invalid model number, should be between 1-3")
+            raise ImportWarning("invalid model number, should be between 1-3")
         # define optimizer here for modularity
         self.optimizer = torch.optim.Adam(self._model.parameters(), lr=0.001)
         self.criterion = criterion.type(dtype)
@@ -71,7 +71,7 @@ class Trainer:
         torch.save({'state_dict': self._model.state_dict()}, os.path.join(self.root_path,'checkpoint_{:03d}.ckp'.format(epoch)))
 
     def restore_checkpoint(self, epoch_n):
-        ckp = torch.load(os.path.join(self.root_path, 'checkpoint_{:03d}.ckp'.format(epoch_n), device))
+        ckp = torch.load(os.path.join(self.root_path, 'checkpoint_{:03d}.ckp'.format(epoch_n)), device)
         self._model.load_state_dict(ckp['state_dict'])
 
     def train_step_Geo(self, rir_features, geo_labels, coeff_l, batch_idx):
@@ -262,18 +262,33 @@ class Trainer:
         var = torch.var(batch_pred, axis=0)
         #
         return {"bias":bias,"var":var,"rmse":rmse}
+    
+    def test_model(self, epoch):
+        '''
+        epoch is checkpoint number to load mmodel
+        '''
+        # call to restore checkpoint
+        self.restore_checkpoint(epoch)
+        # run test batch
+        test_loss, scores = self.val_epoch(self.test_batches, mode='test')
 
-    def fit(self, epochs=-1):
+        return  {
+            "test_loss" : test_loss,
+            "scores" : scores
+        }
+    
+
+    def fit(self, epochs_start=1, epochs_end=0):
+        epochs = epochs_end - epochs_start
         assert epochs > 0, 'Epochs > 0'
         #
         loss_train = np.array([])
         loss_val = np.array([])
-        epoch_counter = 0
         min_loss = np.Inf
         criteria_counter = 0
         #
         #while (True):
-        for i in tqdm.trange(epochs):
+        for i in tqdm.trange(epochs_start, epochs_end):
             # stop by epoch number
             # if epoch_counter >= epochs:
             #     break
@@ -298,8 +313,9 @@ class Trainer:
                 criteria_counter += 1            
             # early stopping
             if criteria_counter > self._early_stopping_patience:
-                print("Early Stopping Criteria activated")
-                break
+                print(f"Early Stopping Criteria activated at epoch {i} with criterion counter at {criteria_counter}")
+                #break
+                criteria_counter = 0
         
         # run test batch
         test_loss, scores = self.val_epoch(self.test_batches, mode='test')

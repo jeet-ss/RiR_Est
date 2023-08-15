@@ -1,5 +1,7 @@
 events.out.tfevents*
+*.ckp
 *.ckpt
 *.yaml
 *.npy
 *.pyc
+

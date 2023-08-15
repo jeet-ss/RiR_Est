@@ -11,19 +11,22 @@ from utils.trainer import Trainer
 
 def train(args):
     # MOdel
-    model_num = 3
+    model_num = 1
     # hyperparams
     lr = 0.001          # org 0.001
     early_stopping = 100
     batch_size = 50
     args.fp = "./rirData/ism_400.npy"
-    epochs = 3       # org 2000
+    epochStart = 0      # org 2000
+    epochEnd = 1500
+    name_variant = ''
+    retrain_model_epoch = 59
 
     # load data
     dd = np.load(args.fp)
     #dd = np.concatenate((dd[:2450,:] , dd[2452:,:]))
     data_pd = pd.DataFrame(dd)
-    print("DAta shape", data_pd.shape)
+    print("Data shape", data_pd.shape)
 
     # divide data
     train_data, rest_data = train_test_split(data_pd, train_size=0.7, random_state=1)
@@ -37,11 +40,12 @@ def train(args):
     # loss funciton
     loss_function = torch.nn.MSELoss()
 
-    trainer = Trainer(model_no=model_num, lr=lr, criterion=loss_function, train_loader=train_batches, val_loader=val_batches, test_loader=test_batches, early_stopping_patience=early_stopping)
-
-    loss = trainer.fit(epochs=epochs)
+    trainer = Trainer(model_no=model_num, lr=lr, criterion=loss_function, train_loader=train_batches, val_loader=val_batches, test_loader=test_batches, early_stopping_patience=early_stopping, name_variant=name_variant)
+    # load model for retraining
+    trainer.restore_checkpoint(epoch_n=retrain_model_epoch)
+    loss = trainer.fit(epochs_start=epochStart, epochs_end=epochEnd)
     print("Loss", loss)
-    np.save(str(model_num)+ '_lossData.npy', loss)
+    np.save(str(model_num)+ '_'+ name_variant+'_lossData.npy', loss)
 
 
 
