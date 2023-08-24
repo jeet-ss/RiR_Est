@@ -58,7 +58,7 @@ class Trainer:
         else:
             raise ImportWarning("invalid model number, should be between 1-3")
         # define optimizer here for modularity
-        self.optimizer = torch.optim.Adam(self._model.parameters(), lr=0.001)
+        self.optimizer = torch.optim.Adam(self._model.parameters(), lr=lr, betas=(0.9, 0.999))
         self.criterion = criterion.type(dtype)
         self.train_batches = train_loader
         self.val_batches = val_loader

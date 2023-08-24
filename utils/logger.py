@@ -9,10 +9,14 @@ class Logger(object):
     
     def __init__(self, log_dir):
         """Create a summary writer logging to log_dir."""
-        self.writer = SummaryWriter(log_dir)
+        #self.writer = SummaryWriter(log_dir)
+        self.default_dir = log_dir
 
-    def update_dir(self, log_dir):
-        self.writer = SummaryWriter(log_dir)
+    def update_dir(self, log_dir=''):
+        if log_dir:
+            self.writer = SummaryWriter(log_dir)
+        else:
+            self.writer = SummaryWriter(self.default_dir)
 
     def scalar_summary(self, tag, value, step):
         """Log a scalar variable."""

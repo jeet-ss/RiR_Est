@@ -26,7 +26,7 @@ def train(args):
     dd = np.load(args.fp)
     #dd = np.concatenate((dd[:2450,:] , dd[2452:,:]))
     data_pd = pd.DataFrame(dd)
-    print("Data shape", data_pd.shape)
+    print(f"Data shape: {data_pd.shape}, Epochs from {epochStart} to {epochEnd}")
 
     # divide data
     train_data, rest_data = train_test_split(data_pd, train_size=0.7, random_state=1)
@@ -35,7 +35,7 @@ def train(args):
     train_batches = torch.utils.data.DataLoader(ISMDataset(data=train_data), batch_size=batch_size,  num_workers=4)
     val_batches = torch.utils.data.DataLoader(ISMDataset(data=val_data), batch_size=batch_size,  num_workers=4)
     test_batches = torch.utils.data.DataLoader(ISMDataset(data=test_data), batch_size=batch_size,  num_workers=4)
-    print("batches:" , len(train_batches), len(val_batches), len(test_batches))
+    print(f"batches: train-{len(train_batches)}, val-{len(val_batches)}, test-{len(test_batches)}")
     
     # loss funciton
     loss_function = torch.nn.MSELoss()
