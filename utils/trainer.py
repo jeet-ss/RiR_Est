@@ -314,7 +314,7 @@ class Trainer:
             # early stopping
             if criteria_counter > self._early_stopping_patience:
                 print(f"Early Stopping Criteria activated at epoch {i} with criterion counter at {criteria_counter}")
-                #break
+                break
                 criteria_counter = 0
         
         # run test batch
