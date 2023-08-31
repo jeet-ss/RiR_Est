@@ -5,7 +5,7 @@ import numpy as np
 from utils.logger import Logger
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-from utils.model import Geometry_estimator, MLP_reflectionCoeff, Link_model
+from utils.model import Geometry_estimator, MLP_reflectionCoeff, Link_model, fcModel, model_f
 
 # Global variables
 LOG_EVERY_N_STEPS = 100
@@ -42,13 +42,14 @@ class Trainer:
             self.root_path = 'Geo_checkpoints'
             logger.update_dir('./logs_Geo')
         elif model_no == 2:
-            self._model= MLP_reflectionCoeff().type(dtype)
+            self._model= model_f.type(dtype)
             self.train_step = self.train_step_reCoeff
             self.val_step = self.val_test_step_reCoeff
             self.concat_batchLabels = self.concat_batchLables_ReCoeff
             self.root_path = 'Ref_checkpoints'
             logger.update_dir('./logs_reCoeff')
         elif model_no == 3:
+            mm=torch.compile(Link_model())
             self._model= Link_model().type(dtype)
             self.train_step = self.train_step_Link
             self.val_step = self.val_test_step_Link
@@ -288,7 +289,7 @@ class Trainer:
         criteria_counter = 0
         #
         #while (True):
-        for i in tqdm.trange(epochs_start, epochs_end):
+        for i in range(epochs_start, epochs_end):
             # stop by epoch number
             # if epoch_counter >= epochs:
             #     break
@@ -316,6 +317,8 @@ class Trainer:
                 print(f"Early Stopping Criteria activated at epoch {i} with criterion counter at {criteria_counter}")
                 break
                 criteria_counter = 0
+            # print
+            print(f'at epoch-{i}, trainLoss-{train_loss}, valLoss-{val_loss}')
         
         # run test batch
         test_loss, scores = self.val_epoch(self.test_batches, mode='test')

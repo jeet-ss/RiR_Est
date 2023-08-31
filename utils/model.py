@@ -8,7 +8,7 @@ class Conv_block(nn.Module):
         self.seq = nn.Sequential(
                     nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, bias=False),
                     nn.BatchNorm1d(out_channels),
-                    nn.ReLU()
+                    nn.LeakyReLU()
 
                 )
         
@@ -48,6 +48,19 @@ class Geometry_estimator(nn.Module):
         # return
         return inp
 
+
+model_f = nn.Sequential(
+                        nn.Linear(4096, 2048), nn.ReLU(),
+                        nn.Linear(2048, 1024), nn.ReLU(),   #1 
+                        nn.Linear(1024, 512), nn.ReLU(),    #2
+                        nn.Linear(512, 256), nn.ReLU(),     #3
+                        nn.Linear(256, 128), nn.ReLU(),     #4
+                        nn.Linear(128, 64), nn.ReLU(),      #5
+                        nn.Linear(64, 32), nn.ReLU(),       #6
+                        nn.Linear(32, 16), nn.ReLU(),       #7
+                        nn.Linear(16, 8), nn.ReLU(),        #8
+                        nn.Linear(8, 6)                     #9
+                    )
 
 class MLP_reflectionCoeff(nn.Module):
     """
@@ -100,7 +113,7 @@ class Link_model(nn.Module):
                         )
         
     def forward(self, inp, room_geo):
-        # inp shape = (b, 1, 4096) ,  room_geo = (b ,1, 3)
+        # inp shape = (b, 4096) ,  room_geo = (b , 3)
         batch = inp.size()[0]
         # add conditoning
 

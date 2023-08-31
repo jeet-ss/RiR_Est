@@ -18,7 +18,7 @@ def train(args):
     batch_size = 50
     args.fp = "./rirData/ism_400k.npy"
     epochStart = 0      # org 2000
-    epochEnd = 800
+    epochEnd = 10
     name_variant = ''
     retrain_model_epoch = 59
 
@@ -53,6 +53,9 @@ def train(args):
     print("Loss", loss)
     np.save(str(model_num)+ '_'+ name_variant+'_lossData.npy', loss)
 
+    # scoring
+    #scores = trainer.test_model(retrain_model_epoch)
+    #print("scores:", scores)
 
 
 if __name__ == '__main__':
