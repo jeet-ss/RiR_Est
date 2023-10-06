@@ -20,8 +20,9 @@ def generate_ism(n_data=40000):
         # L x H x W
         room_geo  = [np.random.randint(low=60, high=100)/10, np.random.randint(low=50, high=80)/10, np.random.randint(low=40, high=60)/10]
         # random room coeffs
-        room_coeff = np.random.uniform(size=(6)).round(2)
-        room_coeff[room_coeff == 1.0] = 0.99
+        room_coeff = np.random.uniform(low=0.7, high=0.99, size=(6)).round(2)
+        #room_coeff = np.random.uniform(size=(6)).round(2)
+        #room_coeff[room_coeff == 1.0] = 0.99
         # random source and receiver position
         source_position = [np.random.randint(low=(len*10)/2-20, high=(len*10)/2+20)/10 for len in room_geo]
         #'receiver_position = []
