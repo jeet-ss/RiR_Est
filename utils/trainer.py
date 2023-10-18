@@ -5,7 +5,7 @@ import numpy as np
 from utils.logger import Logger
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-from utils.model import Geometry_estimator, MLP_reflectionCoeff, Link_model, fcModel, model_f
+from utils.model import Geometry_estimator, MLP_reflectionCoeff, Link_model
 
 # Global variables
 LOG_EVERY_N_STEPS = 100
@@ -42,14 +42,13 @@ class Trainer:
             self.root_path = 'Geo_checkpoints'
             logger.update_dir('./logs_Geo')
         elif model_no == 2:
-            self._model= model_f.type(dtype)
+            self._model= MLP_reflectionCoeff().type(dtype)
             self.train_step = self.train_step_reCoeff
             self.val_step = self.val_test_step_reCoeff
             self.concat_batchLabels = self.concat_batchLables_ReCoeff
             self.root_path = 'Ref_checkpoints'
             logger.update_dir('./logs_reCoeff')
         elif model_no == 3:
-            mm=torch.compile(Link_model())
             self._model= Link_model().type(dtype)
             self.train_step = self.train_step_Link
             self.val_step = self.val_test_step_Link
@@ -82,8 +81,10 @@ class Trainer:
         pred = self._model(rir_features.unsqueeze(axis=1))
         #print("in train", pred.size(), geo_labels.size() )
         # calculate loss
-        loss = self.criterion(pred, geo_labels)
-        #print("loss")
+        loss_t = self.criterion(pred, geo_labels)
+        #loss = torch.mean(torch.Tensor([torch.pow(torch.linalg.norm(i), 2) for i in loss_t]))
+        #loss.requires_grad_()
+        loss = torch.mean(loss_t)
         #print("loss", batch_idx, loss)
         if torch.isnan(loss):
             print("is nan", batch_idx)
@@ -95,7 +96,7 @@ class Trainer:
         #
             self.optimizer.step()
 
-            return loss.detach().item()
+            return loss.detach().item(), loss_t.detach(), pred.detach()
 
     def train_step_reCoeff(self, rir_features, geo_labels, coeff_l, batch_idx):
         # reset zero grad
@@ -104,8 +105,8 @@ class Trainer:
         pred = self._model(rir_features)
         #print("in train", pred.squeeze(axis=1).size(), coeff_l.size() )
         # calculate loss
-        loss = self.criterion(pred, coeff_l)
-        #print("loss")
+        loss_t = self.criterion(pred, coeff_l)
+        loss = torch.mean(loss_t)
         #print("loss", batch_idx, loss)
         if torch.isnan(loss):
             print("is nan2", batch_idx)
@@ -117,7 +118,7 @@ class Trainer:
         #
             self.optimizer.step()
 
-            return loss.detach().item()
+            return loss.detach().item(), loss_t.detach(), pred.detach()
         
     def train_step_Link(self, rir_features, geo_labels, coeff_l, batch_idx):
         batch_size = rir_features.size()[0]
@@ -130,7 +131,8 @@ class Trainer:
         #labels = torch.cat((geo_labels.reshape(batch_size, 3, 1), coeff_l.reshape(batch_size,3,2)), dim=2)
         labels = self.reshape_lables3x3(batch_size, geo_labels, coeff_l)
         # loss
-        loss = self.criterion(pred, labels)
+        loss_t = self.criterion(pred, labels)
+        loss = torch.mean(loss_t)
         #print("loss", batch_idx, loss)
         if torch.isnan(loss):
             print("is nan2", batch_idx)
@@ -141,29 +143,32 @@ class Trainer:
         #
             self.optimizer.step()
 
-            return loss.detach().item()
+            return loss.detach().item(), loss_t.detach(), pred.detach()
         
     def val_test_step_Geo(self, rir_features, geo_labels, coeff_l, batch_idx):
         # predict
         pred = self._model(rir_features.unsqueeze(axis=1))
         # loss
-        loss = self.criterion(pred, geo_labels)
+        loss_t = self.criterion(pred, geo_labels)
+        loss = torch.mean(loss_t)
+        #print("in geo", loss, loss_t.size(), pred.size())
         # 
         if torch.isnan(loss):
             return 0
         else:
-            return loss.detach().item(), pred.detach()
+            return loss.detach().item(), loss_t.detach(), pred.detach()
     
     def val_test_step_reCoeff(self, rir_features, geo_labels, coeff_l, batch_idx):
         # predict
         pred = self._model(rir_features)
         # loss
-        loss = self.criterion(pred, coeff_l)
+        loss_t = self.criterion(pred, coeff_l)
+        loss = torch.mean(loss_t)
         # 
         if torch.isnan(loss):
             return 0
         else:
-            return loss.detach().item(), pred.detach()
+            return loss.detach().item(), loss_t.detach(), pred.detach()
     
     def val_test_step_Link(self, rir_features, geo_labels, coeff_l, batch_idx):
         batch_size = rir_features.size()[0]
@@ -173,12 +178,13 @@ class Trainer:
         #labels = torch.cat((geo_labels.reshape(batch_size, 3, 1), coeff_l.reshape(batch_size,3,2)), dim=2)
         labels = self.reshape_lables3x3(batch_size, geo_labels, coeff_l)
         # loss
-        loss = self.criterion(pred, labels)
+        loss_t = self.criterion(pred, labels)
+        loss = torch.mean(loss_t)
         # 
         if torch.isnan(loss):
             return 0
         else:
-            return loss.detach().item(), pred.detach()
+            return loss.detach().item(), loss_t.detach(), pred.detach()
 
 
 
@@ -187,6 +193,9 @@ class Trainer:
         self._model.train()
         # iterate through the training set
         loss = 0
+        batch_pred = torch.empty(0)
+        batch_loss = torch.empty(0)
+        batch_labels = torch.empty(0)
         #for idx, batches in tqdm.tqdm(enumerate(self.train_batches), unit='batch', total=len(self.train_batches), desc='loading batches'):
         for idx, batches in enumerate(self.train_batches):
             geo_l, coeff_l, rir_f = batches
@@ -195,14 +204,15 @@ class Trainer:
             rir_f = rir_f.type(dtype)
                 
             # perform a training step
-            loss_step = self.train_step(rir_f, geo_l, coeff_l, idx)
-            #loss_step = self.train_step_reCoeff(rir_f, coeff_l, idx)
-            #loss_step = self.train_step_Link(rir_f, geo_l, coeff_l, idx)
+            loss_step, loss_t, pred = self.train_step(rir_f, geo_l, coeff_l, idx)
             loss += loss_step
+            batch_labels = self.concat_batchLabels(batch_labels, geo_l.cpu(), coeff_l.cpu())
+            batch_pred = torch.cat((batch_pred, pred.cpu()))
+            batch_loss = torch.cat((batch_loss, loss_t.cpu()))
         # calculate the average loss for the epoch and return it
         avg_loss = loss/self.train_batches.__len__()
 
-        return avg_loss
+        return avg_loss, batch_pred, batch_loss, batch_labels
 
     def val_epoch(self, batches, mode='val'):
         # eval mode
@@ -211,6 +221,7 @@ class Trainer:
         loss = 0
         batch_pred = torch.empty(0)
         batch_labels = torch.empty(0)
+        batch_loss = torch.empty(0)
         #
         with torch.no_grad():
             for idx, batches in enumerate(batches):
@@ -220,15 +231,13 @@ class Trainer:
                 coeff_l = coeff_l.type(dtype)
                 rir_f = rir_f.type(dtype)
                 # validation step and add loss
-                loss_step, pred = self.val_step(rir_f, geo_l, coeff_l, idx)
-                #loss_step, pred = self.val_test_step_reCoeff(rir_f, coeff_l, idx)
-                #loss_step, pred = self.val_test_step_Link(rir_f, geo_l, coeff_l, idx)
-
+                loss_step, loss_t, pred = self.val_step(rir_f, geo_l, coeff_l, idx)
                 loss += loss_step
                 # save prediciton
                 batch_pred = torch.cat((batch_pred, pred.cpu()))
                 #batch_labels = torch.cat((batch_labels, geo_l.cpu()))
                 batch_labels = self.concat_batchLabels(batch_labels, geo_l.cpu(), coeff_l.cpu())
+                batch_loss = torch.cat((batch_loss, loss_t.cpu()))
             # avg loss
             avg_loss = loss/self.val_batches.__len__()
             #print("inval", batch_labels.size(), batch_pred.size())
@@ -238,9 +247,9 @@ class Trainer:
                 # print score
                 print("Scores: ", "\n", "1. RMSE: ", scores['rmse'], "\n", "2. Bias: ", scores['bias'], "\n", "3. Var: ", scores['var']  ) # rmse
                 #print(scores)
-                return avg_loss, scores
+                return avg_loss, scores, batch_pred, batch_loss, batch_labels
             else :
-                return avg_loss
+                return avg_loss, batch_pred, batch_loss, batch_labels
         
     # fucntion to reshape labels for 3rd model
     def reshape_lables3x3(self, batch_size, geo_labels, coeff_l):
@@ -284,22 +293,31 @@ class Trainer:
         assert epochs > 0, 'Epochs > 0'
         #
         loss_train = np.array([])
+        pred_train = torch.empty(0)
+        loss_train_t = torch.empty(0)
+        label_train = torch.empty(0)
+
         loss_val = np.array([])
+        pred_val = torch.empty(0)
+        loss_val_t = torch.empty(0)
+        label_val = torch.empty(0)
         min_loss = np.Inf
         criteria_counter = 0
         #
         #while (True):
         for i in range(epochs_start, epochs_end):
-            # stop by epoch number
-            # if epoch_counter >= epochs:
-            #     break
-            # increment Counter
-            #epoch_counter += 1
-            train_loss = self.train_epoch()
-            val_loss = self.val_epoch(self.val_batches)
+            
+            train_loss, train_pred, train_loss_t, train_labels = self.train_epoch()
+            val_loss, val_pred, val_loss_t, val_labels = self.val_epoch(self.val_batches)
             #
             loss_train = np.append(loss_train, train_loss)
+            pred_train = torch.cat((pred_train, train_pred))
+            loss_train_t = torch.cat((loss_train_t, train_loss_t))
+            label_train = torch.cat((label_train, train_labels))
             loss_val = np.append(loss_val, val_loss)
+            pred_val = torch.cat((pred_val, val_pred))
+            loss_val_t = torch.cat((loss_val_t, val_loss_t))
+            label_val = torch.cat((label_val, val_labels))
             #logging
             logger.scalar_summary("train_Loss", train_loss, i)
             logger.scalar_summary("val_Loss", val_loss, i)
@@ -321,13 +339,22 @@ class Trainer:
             print(f'at epoch-{i}, trainLoss-{train_loss}, valLoss-{val_loss}')
         
         # run test batch
-        test_loss, scores = self.val_epoch(self.test_batches, mode='test')
+        test_loss, scores, test_pred, test_loss_t, test_labels = self.val_epoch(self.test_batches, mode='test')
 
             
         return  {
             "train_loss" : loss_train,
+            "train_pred" : pred_train.numpy(),
+            "train_loss_time" : loss_train_t.numpy(),
+            "train_labels" : label_train.numpy(),
             "test_loss" : test_loss,
+            "test_pred" : test_pred.numpy(),
+            "test_loss_t" : test_loss_t.numpy(),
+            "test_labels" : test_labels.numpy(),
             "val_loss" : loss_val,
+            "val_pred" : pred_val.numpy(),
+            "val_loss_time" : loss_val_t.numpy(),
+            "val_labels" : label_val.numpy(),
             "min_loss" : min_loss,
             "scores" : scores
         }

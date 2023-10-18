@@ -16,10 +16,10 @@ def train(args):
     lr = 0.001          # org 0.001
     early_stopping = 100
     batch_size = 50
-    args.fp = "./rirData/ism_400k.npy"
+    args.fp = "./rirData/ism_400.npy"
     epochStart = 0      # org 2000
-    epochEnd = 10
-    name_variant = ''
+    epochEnd = 20
+    name_variant = 'test'
     retrain_model_epoch = 59
 
     # load data
@@ -37,6 +37,7 @@ def train(args):
     train_data = data_pd.loc[:train_head-1, :]
     val_data = data_pd.loc[train_head:val_head-1, :]
     test_data = data_pd.loc[val_head:, :]
+    print(f"train data:{train_data.shape}, val_data:{val_data.shape}, test_data:{test_data.shape}")
 
     train_batches = torch.utils.data.DataLoader(ISMDataset(data=train_data), batch_size=batch_size,  num_workers=4)
     val_batches = torch.utils.data.DataLoader(ISMDataset(data=val_data), batch_size=batch_size,  num_workers=4)
@@ -44,13 +45,13 @@ def train(args):
     print(f"batches: train-{len(train_batches)}, val-{len(val_batches)}, test-{len(test_batches)}")
     
     # loss funciton
-    loss_function = torch.nn.MSELoss()
+    loss_function = torch.nn.MSELoss(reduction="none")
 
     trainer = Trainer(model_no=model_num, lr=lr, criterion=loss_function, train_loader=train_batches, val_loader=val_batches, test_loader=test_batches, early_stopping_patience=early_stopping, name_variant=name_variant)
     # load model for retraining
     #trainer.restore_checkpoint(epoch_n=retrain_model_epoch)
     loss = trainer.fit(epochs_start=epochStart, epochs_end=epochEnd)
-    print("Loss", loss)
+    #print("Loss", loss)
     np.save(str(model_num)+ '_'+ name_variant+'_lossData.npy', loss)
 
     # scoring
